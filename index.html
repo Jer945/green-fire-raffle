@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reverse Raffle Board</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: #000;
+    color: white;
+    margin: 0;
+    padding: 0;
+  }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    gap: 8px;
+    justify-content: center;
+    padding: 20px;
+    max-width: 95vw;
+    margin: auto;
+  }
+  .number {
+    background-color: #d40000;
+    color: #fff;
+    border: 2px solid #fff;
+    padding: 15px 0;
+    font-size: 26px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 6px;
+    position: relative;
+    user-select: none;
+  }
+  .number:hover {
+    background-color: #a90000;
+  }
+  .selected {
+    background-color: #000;
+    color: #000;
+    border-color: #000;
+    box-shadow: none;
+  }
+  .selected:hover {
+    background-color: #000;
+  }
+  #controls {
+    margin: 15px;
+  }
+  button {
+    padding: 12px 24px;
+    font-size: 18px;
+    margin: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    border: none;
+  }
+  #undo { background-color: #ffa500; color: white; }
+  #reset { background-color: #555; color: white; }
+  #fullscreen { background-color: #1e90ff; color: white; }
+</style>
+</head>
+<body>
+<div id="controls">
+  <button id="undo">Undo</button>
+  <button id="reset">Reset</button>
+  <button id="fullscreen">Full Screen</button>
+</div>
+
+<div id="board"></div>
+
+<script>
+const board = document.getElementById("board");
+const undoBtn = document.getElementById("undo");
+const resetBtn = document.getElementById("reset");
+const fullscreenBtn = document.getElementById("fullscreen");
+
+let selectedNumbers = JSON.parse(localStorage.getItem("selectedNumbers")) || [];
+let undoStack = [];
+
+function saveState() {
+  localStorage.setItem("selectedNumbers", JSON.stringify(selectedNumbers));
+}
+
+function createBoard() {
+  board.innerHTML = "";
+  for (let i = 1; i <= 200; i++) {
+    const div = document.createElement("div");
+    div.classList.add("number");
+    div.textContent = i;
+    if (selectedNumbers.includes(i)) div.classList.add("selected");
+    div.addEventListener("click", () => toggleNumber(i));
+    board.appendChild(div);
+  }
+}
+
+function toggleNumber(num) {
+  const idx = selectedNumbers.indexOf(num);
+  if (idx === -1) {
+    selectedNumbers.push(num);
+  } else {
+    selectedNumbers.splice(idx, 1);
+  }
+  undoStack.push([...selectedNumbers]);
+  saveState();
+  createBoard();
+}
+
+undoBtn.addEventListener("click", () => {
+  if (undoStack.length > 1) {
+    undoStack.pop();
+    selectedNumbers = undoStack[undoStack.length - 1];
+    saveState();
+    createBoard();
+  }
+});
+
+resetBtn.addEventListener("click", () => {
+  if (confirm("Reset all numbers?")) {
+    selectedNumbers = [];
+    undoStack = [];
+    saveState();
+    createBoard();
+  }
+});
+
+// FULL SCREEN
+fullscreenBtn.addEventListener("click", toggleFullScreen);
+document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "f") toggleFullScreen();
+});
+
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+// Initialize
+undoStack.push([...selectedNumbers]);
+createBoard();
+</script>
+
+</body>
+</html>
