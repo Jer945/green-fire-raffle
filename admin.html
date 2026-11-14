@@ -1,0 +1,42 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Raffle Board — Administrator</title><link rel="stylesheet" href="style.css"></head><body><main><div id="login" class="login"><input id="email" type="email" placeholder="Administrator email" autocomplete="username"><input id="password" type="password" placeholder="Password" autocomplete="current-password"><button id="signIn">Sign in</button><button id="signOut" class="hidden">Sign out</button><span id="authStatus" class="status" role="status">Sign in to control the board</span></div><div class="toolbar"><button id="initialize" class="hidden">Initialize board</button><button id="undo" disabled>Undo</button><button id="reset" disabled>Reset all numbers</button><button id="full">Full screen</button><span id="status" class="status" role="status">Connecting…</span></div><div id="board" class="board"></div></main><script type="module">import {initializeApp} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import {getDatabase,ref,onValue,set,get} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyBHiRMPKg8ZFKRfajK3TpcaZlagE_78FpI",
+  authDomain: "green-fire-raffle.firebaseapp.com",
+  databaseURL: "https://green-fire-raffle-default-rtdb.firebaseio.com",
+  projectId: "green-fire-raffle",
+  storageBucket: "green-fire-raffle.firebasestorage.app",
+  messagingSenderId: "358592079576",
+  appId: "1:358592079576:web:36b892dfe0aaab14b299ad",
+  measurementId: "G-9832HJTP5S"
+};
+const app=initializeApp(firebaseConfig);
+const db=getDatabase(app);
+const selectedRef=ref(db,'raffle/selected');
+const board=document.getElementById('board');
+const status=document.getElementById('status');
+let selected={};
+const tiles=new Map();
+for(let n=1;n<=200;n++){
+ const tile=document.createElement('button');tile.type='button';tile.className='tile';tile.textContent=n;tile.setAttribute('aria-label','Number '+n);
+ tile.dataset.number=n;board.appendChild(tile);tiles.set(n,tile);
+}
+function paint(){for(let n=1;n<=200;n++){let off=selected[n]===true;let t=tiles.get(n);t.classList.toggle('off',off);t.textContent=off?'':String(n);t.setAttribute('aria-label','Number '+n+(off?' selected':''));}}
+onValue(selectedRef,snap=>{selected=snap.val()||{};paint();status.textContent='Live connection active';},err=>{status.textContent='Database connection error: '+err.message;});
+import {getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+const ADMIN_UID='6m2M7tOqnEO3IiA4sI2PPuBnbb33';
+const auth=getAuth(app);let isAdmin=false;let busy=false;let history=[];
+const signInBtn=document.getElementById('signIn'),signOutBtn=document.getElementById('signOut'),initBtn=document.getElementById('initialize'),undoBtn=document.getElementById('undo'),resetBtn=document.getElementById('reset');
+const email=document.getElementById('email'),password=document.getElementById('password'),authStatus=document.getElementById('authStatus');
+function controls(){for(const t of tiles.values())t.disabled=!isAdmin||busy;undoBtn.disabled=!isAdmin||busy||!history.length;resetBtn.disabled=!isAdmin||busy;initBtn.classList.toggle('hidden',!isAdmin);signOutBtn.classList.toggle('hidden',!auth.currentUser);signInBtn.classList.toggle('hidden',!!auth.currentUser);email.classList.toggle('hidden',!!auth.currentUser);password.classList.toggle('hidden',!!auth.currentUser);}
+onAuthStateChanged(auth,user=>{isAdmin=!!user&&user.uid===ADMIN_UID;history=[];authStatus.textContent=isAdmin?'Administrator signed in':user?'This account is not authorized to edit the board':'Sign in to control the board';controls();});
+signInBtn.onclick=async()=>{try{authStatus.textContent='Signing in…';await signInWithEmailAndPassword(auth,email.value.trim(),password.value);password.value='';}catch(e){authStatus.textContent='Sign-in failed: '+e.message;}};
+signOutBtn.onclick=async()=>{await signOut(auth);};
+async function perform(work){if(!isAdmin||busy)return;busy=true;controls();try{await work();}catch(e){status.textContent='Update failed: '+e.message;}finally{busy=false;controls();}}
+for(const [n,t] of tiles)t.onclick=()=>perform(async()=>{const before=selected[n]===true;await set(ref(db,'raffle/selected/'+n),!before);history.push({n,before});});
+undoBtn.onclick=()=>perform(async()=>{const item=history[history.length-1];if(!item)return;await set(ref(db,'raffle/selected/'+item.n),item.before);history.pop();});
+initBtn.onclick=()=>perform(async()=>{const snapshot=await get(selectedRef);if(snapshot.exists()){status.textContent='Board already initialized';return;}const all={};for(let n=1;n<=200;n++)all[n]=false;await set(selectedRef,all);history=[];status.textContent='Board initialized';});
+resetBtn.onclick=()=>{if(!confirm('Restore all 200 numbers?'))return;perform(async()=>{const all={};for(let n=1;n<=200;n++)all[n]=false;await set(selectedRef,all);history=[];});};
+document.getElementById('full').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.();};
+controls();
+</script></body></html>
